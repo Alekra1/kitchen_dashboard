@@ -23,7 +23,7 @@ func getOrders(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, orders)
 }
 
-func postOrders(c *gin.Context) {
+func addOrder(c *gin.Context) {
 	var newOrder order
 
 	// Call BindJSON to bind the received JSON to
@@ -54,7 +54,7 @@ func getOrderByID(c *gin.Context) {
 func main() {
 	router := gin.Default()
 	router.GET("/orders", getOrders)
-	router.POST("/orders", postOrders)
+	router.POST("/add_order", addOrder)
 	router.GET("/orders/:id", getOrderByID)
 	router.Run("localhost:8080")
 }
