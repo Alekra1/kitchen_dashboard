@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,6 +54,18 @@ func getOrderByID(c *gin.Context) {
 
 func main() {
 	router := gin.Default()
+
+	// router.Use(cors.New(cors.Config{
+	// 	AllowOrigins:     []string{"http://localhost:5173"}, // или []string{"*"} для всех
+	// 	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	// 	AllowHeaders:     []string{"Origin", "Content-Type"},
+	// 	ExposeHeaders:    []string{"Content-Length"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           12 * time.Hour,
+	// }))
+
+	router.Use(cors.Default())
+
 	router.GET("/orders", getOrders)
 	router.POST("/orders", postOrders)
 	router.GET("/orders/:id", getOrderByID)
