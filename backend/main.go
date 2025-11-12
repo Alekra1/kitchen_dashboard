@@ -1,73 +1,70 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"github.com/Alekra1/kitchen_dashboard.git/db"
 )
-
-type order struct {
-	ID    string  `json:"id"`
-	Name  string  `json:"name"`
-	Price float64 `json:"price"`
-}
-
-var orders = []order{
-	{ID: "1", Name: "California", Price: 56.99},
-	{ID: "2", Name: "Filadelfia", Price: 69},
-	{ID: "3", Name: "Oleksii", Price: 222},
-}
 
 // getOrders responds with the list of all orders as JSON.
 func getOrders(c *gin.Context) {
+	orders, err := db.ListOrders(c.Request.Context())
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to fetch orders"})
+		return
+	}
+
 	c.IndentedJSON(http.StatusOK, orders)
 }
 
 func postOrders(c *gin.Context) {
-	var newOrder order
-
-	// Call BindJSON to bind the received JSON to
-	// newOrder.
-	if err := c.BindJSON(&newOrder); err != nil {
+	var payload db.Order
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid payload"})
 		return
 	}
 
-	// Add the new order to the slice.
-	orders = append(orders, newOrder)
-	c.IndentedJSON(http.StatusCreated, newOrder)
+	stored, err := db.CreateOrder(c.Request.Context(), payload)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to create order"})
+		return
+	}
+
+	c.IndentedJSON(http.StatusCreated, stored)
 }
 
 func getOrderByID(c *gin.Context) {
-	id := c.Param("id")
-
-	// Loop over the list of orders, looking for
-	// an order whose ID value matches the parameter.
-	for _, a := range orders {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
-		}
+	order, err := db.GetOrder(c.Request.Context(), c.Param("id"))
+	switch {
+	case errors.Is(err, db.ErrOrderNotFound):
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "order not found"})
+	case err != nil:
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "failed to fetch order"})
+	default:
+		c.IndentedJSON(http.StatusOK, order)
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "order not found"})
 }
 
 func main() {
-	router := gin.Default()
+	if err := db.Connect(context.Background()); err != nil {
+		log.Fatalf("failed to connect to postgres: %v", err)
+	}
+	defer db.Close()
 
-	// router.Use(cors.New(cors.Config{
-	// 	AllowOrigins:     []string{"http://localhost:5173"}, // или []string{"*"} для всех
-	// 	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	// 	AllowHeaders:     []string{"Origin", "Content-Type"},
-	// 	ExposeHeaders:    []string{"Content-Length"},
-	// 	AllowCredentials: true,
-	// 	MaxAge:           12 * time.Hour,
-	// }))
+	router := gin.Default()
 
 	router.Use(cors.Default())
 
 	router.GET("/orders", getOrders)
 	router.POST("/orders", postOrders)
 	router.GET("/orders/:id", getOrderByID)
-	router.Run("localhost:8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("server stopped: %v", err)
+	}
 }

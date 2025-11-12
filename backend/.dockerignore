@@ -1,0 +1,8 @@
+# Go build cache
+go-build
+
+# Local env files
+.env
+
+# Git
+.git
